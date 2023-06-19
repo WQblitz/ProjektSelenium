@@ -15,19 +15,31 @@ from time import sleep
 from selenium.webdriver.support.relative_locator import locate_with
 from selenium.common.exceptions import NoSuchElementException
 
-
-#Import modułów zbędnych - mają one tylko ułatwić "wymyślanie" danych, które będą wykorzystane
-#w testach oraz urozmaicić wizualnie zwracane treści
-from faker import Faker
-from pyfiglet import Figlet
-f = Figlet(font='slant')
-print(f.renderText("PROJEKT SELENIUM"))
-
+import element
 #Import danych zawartych w pliku page.py
 import page
 
+#Import modułów zbędnych w działaniu testów:
+
+#Moduł pozwalający na wyświetlenie aktualnej daty
+from datetime import datetime
+
+#Moduł generujący raport w postaci pliku HTML, który jest bardziej czytelny
+import HtmlTestRunner
+
+#Moduł generujący różne dane takie jak imiona, nazwiska, adresy etc.:
+from faker import Faker
+
+
 # DANE TESTOWE
 #Stworzenie klasy dla pierwszego przypadku testowego wraz z konfiguracją
+
+#Wygenerowanie tekstu dla łatwiejszego zobrazowania rezultatu końcowego testu
+print("PROJEKT SELENIUM+UNITTEST")
+now = datetime.now()
+nowTime = now.strftime("%d/%m/%Y %H:%M:%S")
+print("Testy uruchomiono: ",nowTime)
+print("Rezultaty testów:")
 
 class TestXKom(unittest.TestCase):
 #Określenie warunków wstępnych:
@@ -36,35 +48,68 @@ class TestXKom(unittest.TestCase):
         self.driver.maximize_window()
         self.driver.get("https://www.x-kom.pl/")
         self.fakeData = Faker("pl_PL")
-#Funkcja sleep() nie jest niezbędna w tym kodzie, ma na celu tylko i wyłącznie sztucznie opóźnić wykonywanie poleceń przez interpreter
-#aby w móc podejrzeć działanie webdrivera
-    sleep(4)
 
 #Pierwszy test sprawdzający czy otwarta strona to faktycznie strona o odpowiednim tytule
-    def test_MainPageTitle(self):
+    def test_a_MainPageTitle(self):
         mainPage = page.MainPage(self.driver)
-        assert mainPage.is_title_matches()
-        if mainPage.is_title_matches() == True:
-            print("Załadowano poprawną stronę")
+        assert mainPage.is_title_matches_mainPage()
+        if mainPage.is_title_matches_mainPage() == True:
+            print("Załadowano poprawną stronę główną")
         else:
             print("Załadowano złą stronę")
-#Pierwszy test sprawdzający czy po pierwszym wejściu na stronę pojawia się komunikat o ciasteczkach oraz czy działa akceptacja komunikatu
+#Kolejny test sprawdzający czy po pierwszym wejściu na stronę pojawia się komunikat o ciasteczkach oraz czy działa akceptacja komunikatu
 
-    def test_CookieAccept(self):
+    def test_b_CookieAccept(self):
         try:
             cookies = page.MainPage.is_cookies_there(self)
-            print("Znaleziono komunikat dot. ciasteczek!")
+            print("Znaleziono komunikat dot. ciasteczek")
         except NoSuchElementException:
             print("Nie znaleziono komunikatu dot. ciasteczek")
         assert True
+        page.MainPage(self.driver).click_cookie_button()
+
+#Kolejny test, w którym będzie sprawdzana funkcja zakładania konta
+#Funkcja implicitly_wait() jest miejscami wymagana, ze względu na to, że niektóre fragmenty kodu mogą być wykonywane jeszcze zanim konkretny element strony będzie widoczny
+#co będzie skutkowało błędami. Na niektórych etapach wykorzystano funkcję sleep(), która wymusza zatrzymanie wykonywania instrukcji na określony czas.
+    def test_c_AccountCreationPage(self):
+
+        page.MainPage(self.driver).click_cookie_button()
+        accountPage = page.AccountPage(self.driver)
+        self.driver.implicitly_wait(5)
+        page.AccountPage(self.driver).my_account_button()
+        try:
+            no_account = page.AccountPage.no_account_logged(self)
+            print("Załadowano poprawną stronę: Moje konto")
+        except NoSuchElementException:
+            print("Nie znaleziono odnośnika do logowania lub rejestracji")
+        assert True
+        page.AccountPage(self.driver).new_account_button()
+        sleep(3)
+        assert accountPage.is_title_matches_RegisterPage() == True
+        if accountPage.is_title_matches_RegisterPage() == True:
+            print("Wypełnij formularz aby założyć konto")
+        else:
+            print("Załadowano złą stronę")
+
+    def test_d_CreateAccount(self):
+#Rozpoczęcie testu bezpośrednio poprzez link do rejestracji - nie ma potrzeby dublowania powyższego testu, a przy okazji skracamy czas testu.
+        self.driver.get("https://www.x-kom.pl/rejestracja")
+        firstName_input = page.AccountPage.input_name(self)
+        lastName_input = page.AccountPage.input_lastname(self)
+        email_input = page.AccountPage.input_email(self)
+        short_password_input = page.AccountPage.input_password_tooShort(self)
+#Wymuszenie kliknięcia rejestruj w celu ukazania ewentualnych komunikatów:
+
+        sleep(4)
+        password_error = page.AccountPage.short_password_error(self)
+        print(password_error)
+        # # 1.2 Sprawdzenie czy liczba komunikatow o bledzie wynosi 1
+#         self.assertEqual(1, len(password_too_short_message))
+# # 1.3 Sprawdzenie czy tresc komunikatu jest widoczna i brzmi "To pole jest wymagane"
+#         self.assertEqual("Hasło powinno mieć minimum 8 znaków", password_too_short_message[1].text)
+        sleep(5)
 
 
-
-
-
-
-#     def testNoNameEntered(self):
-#     # 1. Kliknij „Moje konto”
 #         find_account = self.driver.find_element(By.XPATH, "//a[@href='/konto']//div[@class='sc-fz2r3r-1 fXBMII']//span[@class='sc-1tblmgq-0 sc-1tblmgq-4 SBMEx sc-fz2r3r-2 cDltcV']//*[name()='svg']").click()
 #         sleep(2)
 #         register = self.driver.find_element(By.XPATH, "//a[contains(text(),'Załóż konto')]").click()
